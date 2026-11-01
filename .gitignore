@@ -1,0 +1,6 @@
+.DS_Store
+Thumbs.db
+*.log
+*.pdf
+*.md.bak
+!README.md
