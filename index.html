@@ -9,14 +9,15 @@
 </head>
 <body>
 <script>
-/* KHANA / خوانا — Persian research reader, v4. Paste into DevTools Sources > Snippets on about:blank. */
+/* KHANA / خوانا — Persian research reader, v5. Paste into DevTools Sources > Snippets on about:blank. */
 (async () => {
   'use strict';
   const CDN = 'https://cdn.jsdelivr.net/npm/';
   const $ = s => document.querySelector(s);
   const fa = n => new Intl.NumberFormat('fa-IR').format(n);
   const fold = s => s.toLocaleLowerCase('fa').replace(/ي/g,'ی').replace(/ك/g,'ک');
-  const CITE = /\uE200cite\uE202([^\uE201]+)\uE201/g;
+  const REF_TOKEN = /\uE200([a-z][a-z0-9_-]*)\uE202([^\uE201]*?)\uE201/g;
+  const FILE_LINK = /^(?:file:\/\/|sandbox:\/|filesystem:|attachment:\/\/)/i;
   const state = {font:16, theme:'light', wide:false, focus:false, file:null, busy:false,
     sections:[], bookmarks:new Set(), hits:[], hit:-1, refs:new Map()};
   document.documentElement.lang='fa';
@@ -62,6 +63,49 @@
     @media(max-width:820px){.nav{height:70px;padding:8px 12px}.progress{top:70px}.brand-name{font-size:21px}.brand-sub{display:none}.searchbox{width:150px}.hide-mobile{display:none}.mobilemenu{display:inline-flex}.layout{display:block;padding:16px 10px 70px}.paper{padding:20px 17px;font-size:15px;border-radius:13px}.sidebar{position:fixed;z-index:61;top:0;bottom:0;right:0;width:min(85vw,315px);max-height:none;border-radius:0;transform:translateX(110%);transition:transform .22s}.drawer-open .sidebar{transform:translateX(0)}.scrim{position:fixed;z-index:60;inset:0;background:#0008}.drawer-open .scrim{display:block}.hero h1{font-size:25px}.tablebox{margin-inline:-2px}.to-top{left:11px;bottom:11px}.toast{left:58px;bottom:11px}}
     @media(max-width:520px){.nav{gap:7px}.brand-emblem{width:34px;height:34px;border-radius:9px}.brand-emblem svg{width:29px}.brand-name{font-size:18px}.searchbox{width:112px}.searchbox input{width:60px}.search-count{display:none}.actions{gap:4px}.btn{padding:5px 7px;font-size:10px;min-height:32px}.btn-icon{min-width:30px}.paper th,.paper td{padding:9px 10px}.metrics{gap:5px}}
 
+
+    /* Identity: keep the Persian wordmark and Roman descriptor in a stable column. */
+    .nav{gap:14px}
+    .brand{display:inline-flex;align-items:center;gap:12px;flex-shrink:0;min-width:165px;direction:rtl}
+    .brand-emblem{flex:0 0 42px;box-shadow:0 2px 0 var(--gold)}
+    .brand-text{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;white-space:nowrap;min-width:0;line-height:1}
+    .brand-name{display:block;line-height:1.35!important;font-size:23px;letter-spacing:-.9px;margin:0}
+    .brand-name::after{display:none}
+    .brand-sub{display:block;direction:ltr;unicode-bidi:isolate;line-height:1.3!important;font:600 8px/1.3 system-ui,sans-serif;letter-spacing:1.05px;white-space:nowrap;align-self:flex-start}
+    .filename{flex:1 1 80px;min-width:0}
+    .searchbox{flex:0 1 260px}
+    @media(max-width:1140px){.brand{min-width:140px}.brand-name{font-size:21px}.brand-sub{font-size:7.5px}.searchbox{flex-basis:200px}}
+    @media(max-width:820px){.nav{gap:8px}.brand{min-width:auto;gap:8px}.brand-sub{display:none}.brand-emblem{flex-basis:36px;width:36px;height:36px}.brand-name{font-size:20px}}
+    @media(max-width:520px){.brand{gap:5px}.brand-emblem{flex-basis:32px;width:32px;height:32px}.brand-name{font-size:18px}}
+
+    /* Research citations and local-file references have separate semantics. */
+    .citation.file-ref{background:color-mix(in srgb,var(--gold) 11%,var(--paper));border-color:color-mix(in srgb,var(--gold) 40%,var(--line));color:var(--ink)}
+    .citation.resource-ref{background:var(--soft);border-style:dashed}
+    .citation:not(button){cursor:default}
+    .source-kind{display:inline-block;margin-inline-end:6px;color:var(--accent-ink);font-weight:800}
+    .source-path{direction:ltr;unicode-bidi:isolate;display:inline-block;overflow-wrap:anywhere}
+    .source-card{scroll-margin-top:106px}
+
+    /* Diagram/Chart viewer: use a self-contained card, never stretch raw SVG. */
+    .vizbox{margin:28px 0;border:1px solid var(--line);background:var(--paper);border-radius:14px;overflow:hidden;break-inside:avoid}
+    .vizhead{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:9px 14px;background:var(--soft);border-bottom:1px solid var(--line);color:var(--muted);font-size:11.5px;font-weight:750}
+    .vizactions{display:flex;align-items:center;gap:7px}
+    .vizactions button{border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--ink);padding:4px 10px;font-size:11px;cursor:pointer}
+    .vizactions button:hover{border-color:var(--accent)}
+    .vizbody{max-width:100%;min-height:105px;overflow:auto;padding:22px;direction:ltr;text-align:center;background:var(--paper)}
+    .vizbody svg{display:block;margin:auto;max-width:none;height:auto;min-width:min-content}
+    .vizbody canvas{display:block;max-width:100%;margin:auto}
+    .vizcanvas{height:360px;position:relative;min-width:320px}
+    .viz-note{margin:0;padding:13px 17px;font-size:12px;color:var(--muted);line-height:1.9;text-align:center}
+    .vizsource{display:none;background:var(--code)}
+    .vizsource.is-open{display:block}
+    .vizsource pre{white-space:pre;overflow:auto;margin:0}
+    .vizerror{color:#b04a43!important}
+    .table-chart{border-top:1px solid var(--line);padding:12px}
+    .table-chart[hidden]{display:none!important}
+    @media(max-width:720px){.vizbody{padding:10px}.vizcanvas{height:280px;min-width:300px}}
+    @media print{.vizhead,.vizsource{display:none!important}.vizbox{border:0;break-inside:avoid}.vizbody{padding:4px;overflow:visible}.vizbody svg{width:100%;max-width:100%;max-height:245mm;height:auto}.vizcanvas{max-height:120mm}}
+
     /* English technical spans are genuine BiDi isolates; CSS direction alone is not enough. */
     .paper bdi.tech-ltr {direction:ltr;unicode-bidi:isolate;text-align:start;font-family:inherit;white-space:normal;overflow-wrap:anywhere}
     .paper p,.paper li,.paper h1,.paper h2,.paper h3,.paper h4,.paper blockquote {direction:rtl;text-align:right}
@@ -81,9 +125,10 @@
     @media(max-width:820px){body.focus .layout,body.focus.wide .layout{display:block!important}body.focus .paper,body.focus.wide .paper{padding:20px 17px}}
     @media print{@page{size:A4;margin:0}body{background:#fff;color:#17252b}.nav,.progress,.sidebar,.scrim,.to-top,.toast,.dropoverlay,.codebar,.tablebar,.bookmark{display:none!important}.layout,body.focus .layout,body.wide .layout{display:block;max-width:none;padding:0;margin:0}.hero{padding:0 0 15px}.paper{border:0;border-radius:0;box-shadow:none;padding:0;min-height:0;font-size:10.5pt;line-height:1.8}.paper h1,.paper h2,.paper h3{break-after:avoid}.tablebox{border:0;overflow:visible}.table-scroll{overflow:visible}.paper table{min-width:0!important;width:100%!important;table-layout:auto;font-size:7.5pt}.paper th,.paper td{min-width:0;max-width:none;padding:6px;overflow-wrap:anywhere}.paper thead{display:table-header-group}.paper tr{break-inside:avoid}.codebox{break-inside:avoid;background:#f5f7f7;border:1px solid #bcc}.paper pre{color:#192c31;white-space:pre-wrap;overflow-wrap:anywhere;font-size:8pt}.paper pre code,.paper pre code *{color:#192c31!important}    .paper a{color:inherit;text-decoration:none}.citation{border:0;background:transparent}
       html,body{margin:0!important;padding:0!important;width:100%!important;background:white!important}
-      .layout,body.focus .layout,body.wide .layout,body.focus.wide .layout{display:block!important;max-width:none!important;min-width:0!important;width:100%!important;padding:14mm 14mm!important;margin:0!important}
+      .layout,body.focus .layout,body.wide .layout,body.focus.wide .layout{display:block!important;max-width:none!important;min-width:0!important;width:100%!important;padding:0!important;margin:0!important}
       .main,.reader,.paper,body.focus .paper,body.focus.wide .paper{display:block!important;width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:0!important;box-shadow:none!important;border:0!important}
-      .hero,body.focus .hero,body.focus.wide .hero{max-width:none!important;width:100%!important;margin:0!important;padding:0 0 12mm!important}
+      .hero,body.focus .hero,body.focus.wide .hero{max-width:none!important;width:100%!important;margin:0!important;padding:14mm 14mm 0!important}
+      .main .paper,body.focus .main .paper,body.focus.wide .main .paper{padding:14mm!important;box-decoration-break:clone!important;-webkit-box-decoration-break:clone!important}
       .paper th,.paper td{text-align:center!important}
       .table-scroll{overflow:visible!important}
     }
@@ -140,7 +185,9 @@
 
   const choose = ()=>$('#file').click();$('#choose').onclick=choose;$('#pickempty').onclick=choose;
   $('#brand').onclick=e=>{e.preventDefault();window.scrollTo({top:0,behavior:'smooth'})};
-  $('#theme').onclick=()=>{state.theme=state.theme==='light'?'dark':'light';document.documentElement.dataset.theme=state.theme;$('#theme').textContent=state.theme==='light'?'☾':'☀';};
+  $('#theme').onclick=()=>{state.theme=state.theme==='light'?'dark':'light';document.documentElement.dataset.theme=state.theme;$('#theme').textContent=state.theme==='light'?'☾':'☀';
+    if(mermaidLoader)mermaidLoader.then(m=>{m.initialize({startOnLoad:false,securityLevel:'strict',theme:state.theme==='dark'?'dark':'neutral',fontFamily:'Vazirmatn, Tahoma, sans-serif'});paper.querySelectorAll('.vizbox[data-viz-type=mermaid]').forEach(card=>renderMermaid(card,card.querySelector('.vizsource code')?.textContent||''))}).catch(()=>{});
+  };
   $('#print').onclick=()=>window.print();
   $('#plus').onclick=()=>{state.font=Math.min(21,state.font+1);paper.style.setProperty('--read-size',state.font+'px');};
   $('#minus').onclick=()=>{state.font=Math.max(13,state.font-1);paper.style.setProperty('--read-size',state.font+'px');};
@@ -152,12 +199,274 @@
   $('#sidefilter').oninput=()=>renderTOC();
 
   async function copy(text,btn){const old=btn.textContent;try{if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(text);else{const t=document.createElement('textarea');t.value=text;t.style='position:fixed;opacity:0';document.body.append(t);t.select();if(!document.execCommand('copy'))throw Error('clipboard');t.remove();}btn.textContent='✓ کپی شد';setTimeout(()=>btn.textContent=old,1300)}catch(e){toast('مرورگر امکان کپی نداد');console.warn(e)}}
-  function appendRefIndex(){if(!state.refs.size)return;const section=document.createElement('section');section.className='source-list';section.id='references';const title=document.createElement('h2');title.textContent='نمایه ارجاعات';const desc=document.createElement('p');desc.className='source-note';desc.textContent='شناسه‌های ChatGPT به شماره تبدیل شده‌اند. این شناسه‌ها به‌تنهایی URL اصلی منابع را در اختیار نمی‌گذارند؛ هیچ لینک ساختگی اضافه نشده است.';const grid=document.createElement('div');grid.className='source-grid';for(const [ref,num] of state.refs){const item=document.createElement('div');item.className='source-card';item.id='source-'+num;const name=document.createElement('b');name.textContent='['+num+'] ';const code=document.createElement('code');code.textContent=ref;item.append(name,code);grid.append(item)}section.append(title,desc,grid);paper.append(section)}
-  function processCitations(){state.refs=new Map();const walk=document.createTreeWalker(paper,NodeFilter.SHOW_TEXT);const nodes=[];let n;while(n=walk.nextNode()){if(n.nodeValue.includes('\uE200cite\uE202')&&!n.parentElement?.closest('pre,code,script,style'))nodes.push(n)}for(const node of nodes){const src=node.nodeValue;CITE.lastIndex=0;const matches=[...src.matchAll(CITE)];if(!matches.length)continue;const frag=document.createDocumentFragment();let offset=0;for(const m of matches){frag.append(document.createTextNode(src.slice(offset,m.index)));const ids=m[1].split('\uE202').map(s=>s.trim()).filter(Boolean);const nums=ids.map(id=>{if(!state.refs.has(id))state.refs.set(id,state.refs.size+1);return state.refs.get(id)});const badge=document.createElement('button');badge.type='button';badge.className='citation';badge.textContent='['+nums.join(', ')+']';badge.title=ids.join('، ');badge.onclick=()=>{const el=$('#source-'+nums[0]);el?.scrollIntoView({behavior:'smooth',block:'center'});if(el){el.style.outline='2px solid var(--accent)';setTimeout(()=>el.style.outline='',1500)}};frag.append(badge);offset=m.index+m[0].length;}frag.append(document.createTextNode(src.slice(offset)));node.replaceWith(frag)}appendRefIndex()}
+  const refKind = family => {
+    if (/^file|filesystem|attachment|filenav/i.test(family)) return 'فایل';
+    if (family==='cite') return 'وب';
+    if (/image|video|chart|graph|map/i.test(family)) return 'رسانه';
+    return 'ارجاع';
+  };
+  function addReference(kind, id) {
+    const key=kind+'|'+id;
+    if(!state.refs.has(key)) state.refs.set(key,{kind,id,num:state.refs.size+1});
+    return state.refs.get(key);
+  }
+  function makeReferenceBadge(entries, label=null) {
+    const badge=document.createElement('button');
+    badge.type='button';
+    badge.className='citation'+(entries.some(e=>e.kind==='فایل')?' file-ref':' resource-ref');
+    badge.textContent=label||'['+entries.map(x=>x.num).join('، ')+']';
+    badge.title=entries.map(x=>x.kind+': '+x.id).join('\n');
+    badge.setAttribute('aria-label','نمایش اطلاعات ارجاع '+entries.map(x=>x.num).join('، '));
+    badge.onclick=()=>{
+      const el=$('#source-'+entries[0].num);
+      el?.scrollIntoView({behavior:'smooth',block:'center'});
+      for(const entry of entries){const node=$('#source-'+entry.num);if(node){node.style.outline='2px solid var(--accent)';setTimeout(()=>node.style.outline='',1700)}}
+    };
+    return badge;
+  }
+  function appendRefIndex() {
+    if(!state.refs.size)return;
+    const section=document.createElement('section');section.className='source-list';section.id='references';
+    const title=document.createElement('h2');title.textContent='نمایه منابع و فایل‌ها';
+    const desc=document.createElement('p');desc.className='source-note';
+    desc.textContent='شناسه‌های خصوصی ChatGPT و مسیرهای محلی فقط برای شناسایی نمایش داده می‌شوند. برای ارجاع‌های فاقد URL معتبر، لینک حدسی ساخته نمی‌شود.';
+    const grid=document.createElement('div');grid.className='source-grid';
+    for(const entry of state.refs.values()){
+      const item=document.createElement('div');item.className='source-card';item.id='source-'+entry.num;
+      const num=document.createElement('b');num.textContent='['+entry.num+'] ';
+      const kind=document.createElement('span');kind.className='source-kind';kind.textContent=entry.kind;
+      const code=document.createElement('code');code.className='source-path';code.dir='ltr';code.textContent=entry.id;
+      item.append(num,kind,code);grid.append(item);
+    }
+    section.append(title,desc,grid);paper.append(section);
+  }
+  function processCitations() {
+    state.refs=new Map();
+    // ChatGPT exports include cite, filecite, filenavlist, and other private
+    // resource sentinels. Preserve the identifier without inventing a URL.
+    const walker=document.createTreeWalker(paper,NodeFilter.SHOW_TEXT);
+    const nodes=[];let node;
+    while((node=walker.nextNode())){
+      if(node.nodeValue.includes('')&&!node.parentElement?.closest('pre,code,script,style'))nodes.push(node);
+    }
+    for(const current of nodes){
+      const raw=current.nodeValue;REF_TOKEN.lastIndex=0;
+      const matches=[...raw.matchAll(REF_TOKEN)];if(!matches.length)continue;
+      const frag=document.createDocumentFragment();let cursor=0;
+      for(const m of matches){
+        frag.append(document.createTextNode(raw.slice(cursor,m.index)));
+        const family=m[1];const payload=m[2];
+        const ids=(family==='cite'||family==='filecite')
+          ? payload.split('').map(x=>x.trim()).filter(Boolean)
+          : [payload.trim()].filter(Boolean);
+        const entries=ids.map(id=>addReference(refKind(family),id));
+        frag.append(makeReferenceBadge(entries));
+        cursor=m.index+m[0].length;
+      }
+      frag.append(document.createTextNode(raw.slice(cursor)));
+      current.replaceWith(frag);
+    }
+    // After sanitization, file:// and sandbox:/ links have no usable browser
+    // destination. Represent them explicitly instead of displaying broken links.
+    paper.querySelectorAll('a').forEach(a=>{
+      const raw=a.getAttribute('href')||'';
+      if(FILE_LINK.test(raw)){
+        const entry=addReference('فایل',raw);
+        a.replaceWith(makeReferenceBadge([entry],a.textContent.trim()+' ['+entry.num+']'));
+      }
+    });
+    appendRefIndex();
+  }
+  function preserveLocalLinks(markdown) {
+    const lines=markdown.split('\n');let fence=null;
+    return lines.map(line=>{
+      const match=line.match(/^\s*(`{3,}|~{3,})/);
+      if(match){
+        const mark=match[1][0];
+        if(!fence)fence={mark,length:match[1].length};
+        else if(mark===fence.mark&&match[1].length>=fence.length)fence=null;
+        return line;
+      }
+      if(fence)return line;
+      // The path is deliberately not fetched or opened by a browser origin.
+      return line.replace(/\[([^\]\n]+)\]\(((?:file:\/\/|sandbox:\/|filesystem:|attachment:\/\/)[^\s)]+)\)/gi,
+        (_m,title,path)=>title+' \uE200filecite\uE202'+path+'\uE201');
+    }).join('\n');
+  }
+
   function tableTSV(t){return [...t.rows].map(r=>[...r.cells].map(c=>c.innerText.replace(/\s+/g,' ').trim()).join('\t')).join('\n')}
+  // Only declarative data is rendered. Never evaluate code from a Markdown document.
+  let chartLoader=null,mermaidLoader=null;
+  let charts=[];
+  const loadCharts=()=>chartLoader||(chartLoader=script(CDN+'chart.js@4.5.1/dist/chart.umd.min.js').then(()=>window.Chart));
+  const loadMermaid=()=>mermaidLoader||(mermaidLoader=import(CDN+'mermaid@11.12.0/dist/mermaid.esm.min.mjs').then(m=>{
+    const instance=m.default;
+    instance.initialize({startOnLoad:false,securityLevel:'strict',theme:state.theme==='dark'?'dark':'neutral',fontFamily:'Vazirmatn, Tahoma, sans-serif',suppressErrorRendering:true});
+    return instance;
+  }));
+  function makeVizCard(title,raw,type) {
+    const card=document.createElement('section');card.className='vizbox';card.dataset.vizType=type;
+    const bar=document.createElement('div');bar.className='vizhead';
+    const label=document.createElement('span');label.textContent=title;
+    const actions=document.createElement('div');actions.className='vizactions';
+    const sourceToggle=document.createElement('button');sourceToggle.textContent='کد / داده';
+    const source=document.createElement('div');source.className='vizsource';
+    const pre=document.createElement('pre');const code=document.createElement('code');code.textContent=raw;pre.append(code);source.append(pre);
+    sourceToggle.onclick=()=>{source.classList.toggle('is-open');sourceToggle.textContent=source.classList.contains('is-open')?'بستن کد':'کد / داده'};
+    actions.append(sourceToggle);bar.append(label,actions);
+    const body=document.createElement('div');body.className='vizbody';body.textContent='در حال آماده‌سازی نمودار…';
+    card.append(bar,body,source);
+    return {card,body,actions,source};
+  }
+  function visualError(body,message) {
+    body.replaceChildren();const el=document.createElement('p');el.className='viz-note vizerror';
+    el.textContent=message+' — داده یا کد اصلی از «کد / داده» قابل مشاهده است.';
+    body.append(el);
+  }
+  async function renderMermaid(card,raw) {
+    const body=card.querySelector('.vizbody');
+    try{
+      const engine=await loadMermaid();
+      if(!card.isConnected)return;
+      const id='khana-diagram-'+Math.random().toString(36).slice(2);
+      const result=await engine.render(id,raw);
+      if(!card.isConnected)return;
+      body.innerHTML=result.svg;
+      const svg=body.querySelector('svg');
+      if(svg){
+        svg.removeAttribute('height');
+        svg.style.height='auto';svg.style.maxWidth='100%';
+        const download=document.createElement('button');download.textContent='دریافت SVG';
+        download.onclick=()=>{
+          const blob=new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml;charset=utf-8'});
+          const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='khana-diagram.svg';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
+        };
+        card.querySelector('.vizactions button[data-download]')?.remove();download.dataset.download='';card.querySelector('.vizactions').prepend(download);
+      }
+    }catch(e){console.warn('Mermaid failed',e);visualError(body,'امکان رندر Mermaid وجود نداشت');}
+  }
+  function parseChartSpec(raw) {
+    const config=JSON.parse(raw);
+    let normalized=config;
+    // Also understand simple structured Chart specs exported from ChatGPT:
+    // {chartType, xKey, series:[{dataKey,label}], data:[{...}]}.
+    if(config.chartType && Array.isArray(config.data)){
+      const mode=String(config.chartType).toLowerCase();
+      if(mode==='pie'){
+        const nameKey=config.nameKey||'name';const valueKey=config.valueKey||'value';
+        normalized={type:'pie',labels:config.data.map(row=>row?.[nameKey]),
+          datasets:[{label:'مقدار',data:config.data.map(row=>row?.[valueKey])}]};
+      }else if(['bar','line'].includes(mode)){
+        if(!config.xKey||!Array.isArray(config.series))throw Error('xKey / series موجود نیست');
+        normalized={type:mode,labels:config.data.map(row=>row?.[config.xKey]),
+          datasets:config.series.map(item=>({label:item.label||item.dataKey,
+            data:config.data.map(row=>row?.[item.dataKey])}))};
+      }else throw Error('این نوع نمودار در Chart.js قابل نمایش نیست');
+    }
+    const type=String(normalized.type||'').toLowerCase();
+    if(!['bar','line','pie','doughnut','radar','polararea'].includes(type))throw Error('نوع نمودار پشتیبانی نمی‌شود');
+    const source=normalized.data&& !Array.isArray(normalized.data) ? normalized.data : normalized;
+    const labels=source.labels;
+    const datasets=source.datasets;
+    if(!Array.isArray(labels)||!labels.length||labels.length>200||!Array.isArray(datasets)||!datasets.length||datasets.length>8)throw Error('ساختار labels یا datasets نامعتبر است');
+    if(!labels.every(x=>['string','number'].includes(typeof x)))throw Error('برچسب‌های نامعتبر');
+    for(const d of datasets){
+      if(!Array.isArray(d.data)||d.data.length!==labels.length||d.data.some(v=>v!==null&&(typeof v!=='number'||!Number.isFinite(v))))throw Error('داده‌های نمودار باید عددی باشند');
+    }
+    return {type:type==='polararea'?'polarArea':type,
+      labels:labels.map(x=>String(x)),
+      datasets:datasets.map(d=>({label:String(d.label||'مقدار'),data:d.data}))};
+  }
+  async function renderChart(card,config) {
+    const body=card.querySelector('.vizbody');
+    try{
+      const Chart=await loadCharts();if(!card.isConnected)return;
+      body.replaceChildren();
+      const wrap=document.createElement('div');wrap.className='vizcanvas';
+      const canvas=document.createElement('canvas');wrap.append(canvas);body.append(wrap);
+      const palette=['#14766b','#c99e62','#5975cf','#d27b89','#7e67b7','#58a8b7','#9a8a58','#a4b98b'];
+      const fill=config.type==='pie'||config.type==='doughnut'||config.type==='polarArea';
+      const data={labels:config.labels,datasets:config.datasets.map((d,i)=>({
+        label:d.label,data:d.data,borderColor:palette[i%palette.length],
+        backgroundColor:fill?config.labels.map((_,j)=>palette[j%palette.length]):palette[i%palette.length]+'b8',
+        borderWidth:2,tension:.25,borderRadius:config.type==='bar'?5:0,
+        pointRadius:config.type==='line'?3:0
+      }))};
+      const chart=new Chart(canvas,{
+        type:config.type,data,
+        options:{responsive:true,maintainAspectRatio:false,animation:false,
+          locale:'fa-IR',plugins:{legend:{position:'bottom',labels:{font:{family:'Vazirmatn, Tahoma'}}}},
+          scales:fill?{}:{x:{ticks:{font:{family:'Vazirmatn, Tahoma'}}},y:{ticks:{font:{family:'Vazirmatn, Tahoma'}}}}}
+      });
+      charts.push(chart);
+      const download=document.createElement('button');download.textContent='دریافت PNG';
+      download.onclick=()=>{const a=document.createElement('a');a.href=chart.toBase64Image();a.download='khana-chart.png';a.click()};
+      card.querySelector('.vizactions button[data-download]')?.remove();download.dataset.download='';card.querySelector('.vizactions').prepend(download);
+    }catch(e){console.warn('Chart failed',e);visualError(body,'امکان نمایش نمودار وجود نداشت: '+e.message);}
+  }
+  function tableChartConfig(table) {
+    const rows=[...table.tBodies].flatMap(b=>[...b.rows]);
+    const headers=[...(table.tHead?.rows[0]?.cells||table.rows[0]?.cells||[])].map(c=>c.textContent.trim());
+    if(headers.length<2||headers.length>8||rows.length<2||rows.length>45)return null;
+    const persianToEnglish=s=>s.replace(/[۰-۹]/g,x=>String(x.charCodeAt(0)-1776)).replace(/[٠-٩]/g,x=>String(x.charCodeAt(0)-1632));
+    const numeric=s=>{
+      let clean=persianToEnglish(s).trim().replace(/\s/g,'').replace(/,/g,'').replace(/[٪%]$/,'');
+      if(!/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(clean))return null;
+      const value=Number(clean);return Number.isFinite(value)?value:null;
+    };
+    const labels=rows.map(row=>row.cells[0]?.textContent.trim());
+    if(labels.some(x=>!x||x.length>90)||labels.filter(x=>numeric(x)!==null).length>rows.length/2)return null;
+    const datasets=[];
+    for(let col=1;col<headers.length;col++){
+      const values=rows.map(row=>numeric(row.cells[col]?.textContent||''));
+      if(values.filter(x=>x!==null).length>=Math.ceil(rows.length*.8))datasets.push({label:headers[col],data:values});
+    }
+    return datasets.length?{type:'bar',labels,datasets}:null;
+  }
+  function enhanceVisualBlocks() {
+    paper.querySelectorAll('.codebox').forEach(box=>{
+      const code=box.querySelector('pre code');if(!code)return;
+      const lang=[...code.classList].find(x=>x.startsWith('language-'))?.slice(9)?.toLowerCase();
+      if(lang==='mermaid'){
+        const raw=code.textContent;
+        const view=makeVizCard('نمودار Mermaid',raw,'mermaid');
+        box.replaceWith(view.card);renderMermaid(view.card,raw);
+      }else if(['chart','chartjs','chart.js'].includes(lang)){
+        const raw=code.textContent;
+        const view=makeVizCard('نمودار داده‌ها',raw,'chart');
+        box.replaceWith(view.card);
+        try{renderChart(view.card,parseChartSpec(raw));}
+        catch(e){visualError(view.body,'ساختار JSON نمودار معتبر نیست: '+e.message);}
+      }
+    });
+  }
+  function clearCharts() {
+    for(const c of charts){try{c.destroy()}catch(_){}}
+    charts=[];
+  }
+
   function enhance(){paper.querySelectorAll('a[href]').forEach(a=>{if(/^https?:/i.test(a.getAttribute('href'))){a.target='_blank';a.rel='noopener noreferrer'}});paper.querySelectorAll('img').forEach(i=>{i.loading='lazy';i.referrerPolicy='no-referrer'});
     paper.querySelectorAll('pre').forEach(pre=>{const code=pre.querySelector('code');if(!code)return;const raw=code.textContent;const lang=[...code.classList].find(c=>c.startsWith('language-'))?.slice(9)||'text';const wrap=document.createElement('div');wrap.className='codebox';const bar=document.createElement('div');bar.className='codebar';const label=document.createElement('span');label.textContent=lang.toUpperCase();const b=document.createElement('button');b.textContent='Copy code';b.onclick=()=>copy(raw,b);bar.append(label,b);pre.replaceWith(wrap);wrap.append(bar,pre)});
-    paper.querySelectorAll('table').forEach((table,i)=>{const wrap=document.createElement('div');wrap.className='tablebox';const bar=document.createElement('div');bar.className='tablebar';const count=Math.max(0,table.rows.length-(table.tHead?.rows.length||0));const title=document.createElement('span');title.textContent='جدول '+fa(i+1)+'  ·  '+fa(count)+' ردیف × '+fa(table.rows[0]?.cells.length||0)+' ستون';const actions=document.createElement('span');actions.className='table-actions';const copyButton=document.createElement('button');copyButton.textContent='کپی برای Excel';copyButton.onclick=()=>copy(tableTSV(table),copyButton);const csvButton=document.createElement('button');csvButton.textContent='دریافت CSV';csvButton.onclick=()=>{const value=[...table.rows].map(r=>[...r.cells].map(c=>'"'+c.innerText.replace(/\s+/g,' ').trim().replace(/"/g,'""')+'"').join(',')).join('\r\n');const data=new Blob(['\ufeff'+value],{type:'text/csv;charset=utf-8;'});const u=URL.createObjectURL(data);const a=document.createElement('a');a.href=u;a.download='table-'+(i+1)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};actions.append(copyButton,csvButton);bar.append(title,actions);const scroll=document.createElement('div');scroll.className='table-scroll';table.replaceWith(wrap);wrap.append(bar,scroll);scroll.append(table);table.querySelectorAll('td,th').forEach(c=>{
+    paper.querySelectorAll('table').forEach((table,i)=>{const wrap=document.createElement('div');wrap.className='tablebox';const bar=document.createElement('div');bar.className='tablebar';const count=Math.max(0,table.rows.length-(table.tHead?.rows.length||0));const title=document.createElement('span');title.textContent='جدول '+fa(i+1)+'  ·  '+fa(count)+' ردیف × '+fa(table.rows[0]?.cells.length||0)+' ستون';const actions=document.createElement('span');actions.className='table-actions';const copyButton=document.createElement('button');copyButton.textContent='کپی برای Excel';copyButton.onclick=()=>copy(tableTSV(table),copyButton);const csvButton=document.createElement('button');csvButton.textContent='دریافت CSV';csvButton.onclick=()=>{const value=[...table.rows].map(r=>[...r.cells].map(c=>'"'+c.innerText.replace(/\s+/g,' ').trim().replace(/"/g,'""')+'"').join(',')).join('\r\n');const data=new Blob(['\ufeff'+value],{type:'text/csv;charset=utf-8;'});const u=URL.createObjectURL(data);const a=document.createElement('a');a.href=u;a.download='table-'+(i+1)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};actions.append(copyButton,csvButton);
+      const generated=tableChartConfig(table);
+      if(generated){
+        const show=document.createElement('button');show.textContent='نمودار';
+        const chartArea=document.createElement('div');chartArea.className='table-chart';chartArea.hidden=true;
+        show.onclick=()=>{
+          if(chartArea.hidden){
+            chartArea.hidden=false;show.textContent='بستن نمودار';
+            const view=makeVizCard('نمودار جدول '+fa(i+1),tableTSV(table),'table-chart');
+            chartArea.replaceChildren(view.card);
+            renderChart(view.card,generated);
+          }else{
+            chartArea.hidden=true;show.textContent='نمودار';
+          }
+        };
+        actions.prepend(show);
+        table.dataset.canChart='1';
+        table._khanaChartArea=chartArea;
+      }
+      bar.append(title,actions);const scroll=document.createElement('div');scroll.className='table-scroll';table.replaceWith(wrap);wrap.append(bar,scroll);scroll.append(table);if(table._khanaChartArea)wrap.append(table._khanaChartArea);table.querySelectorAll('td,th').forEach(c=>{
         const val=c.textContent.trim();
         const letters=val.match(/[A-Za-z\u0621-\u064A\u066E-\u06D3\u06FA-\u06FF]/g)||[];
         const latin=letters.filter(ch=>/[A-Za-z]/.test(ch)).length;
@@ -168,7 +477,7 @@
         c.dir=(latin>persian||(latin===persian&&/[A-Za-z]/.test(first))||
           (!letters.length&&/[0-9]/.test(val)))?'ltr':'rtl';
         if(/^[\s\d۰-۹.,+\-/%×:()]+$/.test(val)&&/[\d۰-۹]/.test(val))c.dataset.num='';
-      });});processCitations();}
+      });});processCitations();enhanceVisualBlocks();}
   /**
    * Protect Latin technical phrases (RTX 5090, Qwen3.8-27B, 31.4GiB,
    * CUDA/driver/runtime) from the Unicode bidirectional algorithm in RTL prose.
@@ -179,7 +488,7 @@
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const parent=node.parentElement;
-        if (!parent || parent.closest('pre,code,script,style,svg,.katex,.katex-display,.citation,.tech-ltr,.source-list,.bookmark,.codebar,.tablebar,.search-mark')) {
+        if (!parent || parent.closest('pre,code,script,style,svg,.katex,.katex-display,.citation,.tech-ltr,.source-list,.bookmark,.codebar,.tablebar,.vizbox,.search-mark')) {
           return NodeFilter.FILTER_REJECT;
         }
         if (!/[A-Za-z0-9]/.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
@@ -225,13 +534,12 @@
   let searchTimer;$('#search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(searchText,170)};$('#nexthit').onclick=()=>selectHit(state.hit+1);$('#prevhit').onclick=()=>selectHit(state.hit-1);
   document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#search').focus();$('#search').select()}else if(e.key==='Escape'){document.body.classList.remove('drawer-open');if(document.activeElement===$('#search')){$('#search').value='';clearSearch();$('#search').blur()}}else if(document.activeElement===$('#search')&&e.key==='Enter'){e.preventDefault();selectHit(state.hit+(e.shiftKey?-1:1))}});
 
-  async function openFile(file){if(!file||state.busy)return;if(!/\.(md|markdown|txt)$/i.test(file.name)&&!file.type.startsWith('text/')){toast('لطفاً یک فایل Markdown انتخاب کن');return;}state.busy=true;$('#choose').disabled=true;const previous=!$('#reader').hidden;if(!previous)view('loading');else toast('در حال بازکردن سند جدید…');try{const raw=await file.text();$('#loadingtext').textContent='در حال ساخت نمای سند…';await baseLib;const result=window.marked.parse(raw,{gfm:true,breaks:false});const html=window.DOMPurify.sanitize(await result);const tmp=document.createElement('article');tmp.innerHTML=html;paper.replaceChildren(...tmp.childNodes);enhance();if(enhancementsReady)applyOptional();isolateTechnicalText(paper);const docHeading=paper.querySelector('h1');const docTitle=docHeading?.textContent?.trim()||paper.querySelector('h2')?.textContent?.trim()||file.name.replace(/\.[^.]+$/,'');if(docHeading===paper.firstElementChild)docHeading.hidden=true;buildTOC();state.file=file;$('#doctitle').textContent=docTitle;$('#filename').textContent=file.name;document.title=$('#doctitle').textContent+' · خوانا';const words=raw.trim()?raw.trim().split(/\s+/).length:0;const metrics=[fa(words)+' واژه',fa(state.sections.length)+' سرفصل',fa(paper.querySelectorAll('table').length)+' جدول',fa(state.refs.size)+' ارجاع','زمان مطالعه حدود '+fa(Math.max(1,Math.ceil(words/190)))+' دقیقه'];$('#metrics').replaceChildren(...metrics.map(t=>{const s=document.createElement('span');s.className='metric';s.textContent=t;return s}));$('#sidenote').textContent='برای نشان‌کردن یک بخش، ستاره کنار عنوان آن را انتخاب کن.';$('#choose').textContent='تغییر سند';$('#sidefilter').value='';$('#search').value='';clearSearch();sidebarTab='toc';document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab==='toc'));renderTOC();view('reader');window.scrollTo({top:0,behavior:'instant'});onScroll();toast('سند آماده مطالعه است ✓')}catch(e){console.error(e);if(!previous)view('empty');toast('خطا: '+e.message)}finally{state.busy=false;$('#choose').disabled=false;}};
+  async function openFile(file){if(!file||state.busy)return;if(!/\.(md|markdown|txt)$/i.test(file.name)&&!file.type.startsWith('text/')){toast('لطفاً یک فایل Markdown انتخاب کن');return;}state.busy=true;$('#choose').disabled=true;const previous=!$('#reader').hidden;if(!previous)view('loading');else toast('در حال بازکردن سند جدید…');try{const raw=await file.text();$('#loadingtext').textContent='در حال ساخت نمای سند…';await baseLib;const result=window.marked.parse(preserveLocalLinks(raw),{gfm:true,breaks:false});const html=window.DOMPurify.sanitize(await result);const tmp=document.createElement('article');tmp.innerHTML=html;clearCharts();paper.replaceChildren(...tmp.childNodes);enhance();if(enhancementsReady)applyOptional();isolateTechnicalText(paper);const docHeading=paper.querySelector('h1');const docTitle=docHeading?.textContent?.trim()||paper.querySelector('h2')?.textContent?.trim()||file.name.replace(/\.[^.]+$/,'');if(docHeading===paper.firstElementChild)docHeading.hidden=true;buildTOC();state.file=file;$('#doctitle').textContent=docTitle;$('#filename').textContent=file.name;document.title=$('#doctitle').textContent+' · خوانا';const words=raw.trim()?raw.trim().split(/\s+/).length:0;const metrics=[fa(words)+' واژه',fa(state.sections.length)+' سرفصل',fa(paper.querySelectorAll('table').length)+' جدول',fa(paper.querySelectorAll('.vizbox').length)+' نمودار',fa(state.refs.size)+' ارجاع','زمان مطالعه حدود '+fa(Math.max(1,Math.ceil(words/190)))+' دقیقه'];$('#metrics').replaceChildren(...metrics.map(t=>{const s=document.createElement('span');s.className='metric';s.textContent=t;return s}));$('#sidenote').textContent='برای نشان‌کردن یک بخش، ستاره کنار عنوان آن را انتخاب کن.';$('#choose').textContent='تغییر سند';$('#sidefilter').value='';$('#search').value='';clearSearch();sidebarTab='toc';document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab==='toc'));renderTOC();view('reader');window.scrollTo({top:0,behavior:'instant'});onScroll();toast('سند آماده مطالعه است ✓')}catch(e){console.error(e);if(!previous)view('empty');toast('خطا: '+e.message)}finally{state.busy=false;$('#choose').disabled=false;}};
   $('#file').onchange=e=>{const file=e.target.files?.[0];e.target.value='';openFile(file)};
   let dragDepth=0;document.addEventListener('dragenter',e=>{if(e.dataTransfer?.types.includes('Files')){e.preventDefault();dragDepth++;$('#drop').hidden=false}});document.addEventListener('dragover',e=>{if(e.dataTransfer?.types.includes('Files'))e.preventDefault()});document.addEventListener('dragleave',e=>{if(e.dataTransfer?.types.includes('Files')){dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)$('#drop').hidden=true}});document.addEventListener('drop',e=>{e.preventDefault();dragDepth=0;$('#drop').hidden=true;openFile(e.dataTransfer?.files?.[0])});
   // Avoid unhandled rejections if the user only opens the app and never selects a file.
   baseLib.catch(e=>{console.warn(e);toast('اتصال CDN برقرار نشد؛ اینترنت و فیلترشکن را بررسی کن')});
 })();
-
 </script>
 </body>
 </html>
