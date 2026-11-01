@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>خوانا | مصاحبه فنی</title>
+<link rel="icon" type="image/svg+xml" href="./logo.svg">
+<link rel="stylesheet" href="./interview.css">
+<script defer src="./interview.js"></script>
+</head>
+<body data-role="candidate">
+<header class="topbar candidate-bar">
+  <div class="brand"><img class="brand-logo" src="./logo.svg" width="44" height="44" alt="لوگوی خوانا"><span><strong>مصاحبه فنی بک‌اند</strong><small>جلسه ارزیابی فنی · بهاران</small></span></div>
+  <div class="candidate-counter" id="candidateCounter">در انتظار شروع</div>
+</header>
+<main class="candidate-main">
+  <div id="candidateEmpty" class="empty"><div class="empty-icon">⌁</div><h1>آماده برای مصاحبه</h1><p>سؤال‌های مصاحبه از پنل مصاحبه‌گر در همین مرورگر نمایش داده می‌شوند.</p><p class="tiny">در صورت بسته‌شدن ارتباط، این صفحه را Refresh کنید.</p></div>
+  <div id="candidateActive" hidden>
+    <div class="candidate-progress"><div class="progress-track"><div id="candidateProgressBar" class="progress-fill"></div></div><span id="candidateRemaining"></span></div>
+    <article class="paper candidate-paper"><h1 id="candidatePrompt" class="primary-prompt"></h1><div id="candidateQuestion" class="prose scenario"></div></article>
+    <section class="candidate-reveals" id="candidateFollowups" hidden><h2>سؤال تکمیلی</h2><div id="candidateFollowupsContent" class="prose"></div></section>
+    <section class="candidate-reveals" id="candidateHints" hidden><h2>راهنمای سؤال</h2><div id="candidateHintsContent" class="hint-list"></div></section>
+    <nav class="candidate-navigation" aria-label="پیمایش سؤال‌ها"><button class="button secondary" id="candidatePrev" disabled>سؤال قبلی</button><span id="candidateFootPosition" class="muted" aria-live="polite"></span><button class="button primary" id="candidateNext" disabled>سؤال بعدی</button></nav>
+  </div>
+</main>
+</body>
+</html>
