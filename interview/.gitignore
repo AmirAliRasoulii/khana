@@ -1,0 +1,6 @@
+# Do not commit actual interview content or candidate evaluations.
+*.private.json
+*Private*.json
+*Full*Guide*.md
+*evaluation*.json
+private/
