@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>خوانا | اتاق مصاحبه‌گر</title>
+<link rel="icon" type="image/svg+xml" href="./logo.svg">
+<link rel="stylesheet" href="./interview.css">
+<script defer src="./interview.js"></script>
+</head>
+<body data-role="interviewer">
+<header class="topbar">
+  <div class="brand"><img class="brand-logo" src="./logo.svg" width="44" height="44" alt="لوگوی خوانا"><span><strong>خوانا / مصاحبه فنی</strong><small>پنل خصوصی مصاحبه‌گر</small></span></div>
+  <div class="top-actions">
+    <span class="time" id="elapsed">۰۰:۰۰</span>
+    <label class="button secondary upload">بارگذاری بانک سؤال خصوصی<input id="bankInput" type="file" accept=".json,application/json" hidden></label>
+    <button class="button" id="openCandidate" disabled>بازکردن تب کاندیدا</button>
+    <button class="button subtle" id="export" disabled>خروجی ارزیابی</button>
+  </div>
+</header>
+<main class="layout interviewer-layout">
+  <aside class="sidebar">
+    <div class="side-title"><strong>مسیر مصاحبه</strong><span id="totalMinutes">۷۵ دقیقه</span></div>
+    <div id="rail" class="rail"><p class="muted">پس از بارگذاری فایل، فهرست سؤال‌ها اینجا نمایش داده می‌شود.</p></div>
+  </aside>
+  <section class="workspace">
+    <div id="empty" class="empty"><div class="empty-icon">؟</div><h1>آماده برای مصاحبه</h1><p>فایل JSON خصوصی سؤال‌ها و پاسخ‌ها را فقط در همین تب بارگذاری کن. پاسخ‌ها به تب کاندیدا ارسال نخواهند شد.</p><label class="button primary upload">انتخاب فایل بانک سؤال<input id="bankInput2" type="file" accept=".json,application/json" hidden></label><p class="tiny">برای همگام‌سازی تب‌ها، برنامه را از یک آدرس <code>http://localhost</code> باز کن؛ نه با <code>file://</code>.</p></div>
+    <div id="active" hidden>
+      <div class="question-meta"><span id="position">سؤال ۱ از ۱۳</span><span id="category">Python</span><span id="budget">۳ دقیقه</span></div>
+      <div class="progress-track"><div id="progressBar" class="progress-fill"></div></div>
+      <article class="paper">
+        <p class="interviewer-topic" id="questionTitle"></p>
+        <h1 class="primary-prompt" id="questionPrompt"></h1>
+        <div id="questionBody" class="prose scenario"></div>
+      </article>
+      <section class="panel" id="followupPanel" hidden>
+        <div class="panel-head"><h2>پیگیری تکمیلی</h2><span class="counter" id="followupCounter"></span></div>
+        <div id="followupContent" class="prose"></div>
+        <button class="button secondary" id="followupNext">نمایش سؤال پیگیری بعدی برای کاندیدا</button>
+        <button class="button subtle" id="followupReset">بستن پیگیری‌ها</button>
+      </section>
+      <section class="panel" id="hintPanel" hidden>
+        <div class="panel-head"><h2>راهنمای مرحله‌ای (Hint)</h2><span class="counter" id="hintCounter"></span></div>
+        <div id="hintContent" class="hint-list"></div>
+        <div class="button-row"><button class="button primary" id="hintNext">نمایش Hint بعدی برای کاندیدا</button><button class="button subtle" id="hintReset">پاک‌کردن Hintهای نمایش‌داده‌شده</button></div>
+      </section>
+      <section class="panel answer-panel">
+        <div class="panel-head"><h2>راهنمای محرمانه مصاحبه‌گر</h2><button id="toggleAnswer" class="button secondary" aria-expanded="false">نمایش پاسخ و معیارها</button></div>
+        <div id="answerContent" hidden><h3>پاسخ مرجع کامل</h3><div id="answerBody" class="prose"></div><h3>معیار امتیازدهی و نشانه‌ها</h3><div id="rubricBody" class="prose"></div></div>
+      </section>
+      <section class="panel eval-panel">
+        <h2>یادداشت و ارزیابی خصوصی</h2>
+        <div class="score-row"><span>امتیاز این سؤال</span><div id="scoreButtons" class="score-buttons"></div></div>
+        <label class="note-label" for="note">شواهد پاسخ کاندیدا / موارد بررسی مرحله دوم</label>
+        <textarea id="note" rows="3" placeholder="مثلاً: Race را تشخیص داد؛ راهکار اتمیک را بدون Hint پیشنهاد کرد..."></textarea>
+      </section>
+      <div class="navigation"><button class="button secondary" id="prev">سؤال قبل</button><span id="footPosition"></span><button class="button primary" id="next">سؤال بعد</button></div>
+      <p class="tiny privacy-note">اطلاعات سؤال و پاسخ فقط از فایل انتخاب‌شده در این تب خوانده می‌شوند. در تب کاندیدا فقط متن سؤال، پیگیری‌ها و Hintهای آزادشده ارسال می‌شود.</p>
+    </div>
+  </section>
+</main>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
