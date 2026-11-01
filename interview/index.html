@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>خوانا | Interview Runner</title>
+<style>
+:root{--ink:#20363c;--muted:#72858b;--green:#116d60;--bg:#f4f8f7;--line:#dce7e5;--p:#fff;--soft:#e6f3ef}*{box-sizing:border-box}
+body{margin:0;font:14px/2 Tahoma,Arial,sans-serif;background:var(--bg);color:var(--ink)}[hidden]{display:none!important}
+header{background:#fff;border-bottom:1px solid var(--line);padding:14px 3vw;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1,h2,h3{line-height:1.65}header strong{font-size:18px}.hint,.muted,.sub{color:var(--muted);font-size:12px}
+button,.import{cursor:pointer;border:1px solid var(--green);background:var(--green);color:#fff;border-radius:10px;padding:8px 13px;font:700 12px Tahoma,Arial,sans-serif}
+button.ghost,.import.ghost{background:#fff;color:var(--green);border-color:#afcec7}button:disabled{opacity:.4;cursor:default}
+main{max-width:1540px;margin:25px auto;padding:0 22px 60px;display:grid;grid-template-columns:230px minmax(0,1fr);gap:22px}
+nav{background:white;border:1px solid var(--line);border-radius:14px;padding:17px;position:sticky;top:20px;align-self:start;max-height:calc(100vh - 30px);overflow:auto}
+nav h3{font-size:12px;margin:13px 0 6px;color:var(--muted)}
+.points{display:flex;gap:7px;flex-wrap:wrap}.point{width:31px;height:31px;border-radius:50%;border-color:var(--line);background:var(--bg);color:var(--ink);padding:0}
+.point.active{background:var(--green);color:white}.point.scored:not(.active){background:#dff3e8;border-color:#c5ddcf}
+article,.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:24px clamp(20px,4vw,45px);margin-bottom:15px;box-shadow:0 8px 26px #152f3010}
+article h1{font-size:clamp(22px,3vw,30px);margin-top:0}.meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-bottom:12px}
+progress{width:100%;height:7px;accent-color:var(--green)}.panel h2{font-size:16px}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:12px 0}
+textarea{width:100%;min-height:95px;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;resize:vertical}
+.markdown{font-size:16px;line-height:2.08;overflow-wrap:anywhere}.markdown pre{background:#12272f;color:#e8f6f2;text-align:left;direction:ltr;padding:16px;border-radius:11px;overflow:auto;font:13px/1.8 monospace}
+.markdown :not(pre)>code{background:#e5f1ee;color:#135c51;padding:1px 4px;direction:ltr;unicode-bidi:isolate;border-radius:4px}
+.markdown ul,.markdown ol{padding-right:22px}.markdown blockquote,.hintbox{border-right:4px solid #c19a5d;background:#fff9e8;border-radius:7px;padding:10px 17px;margin:10px 0}
+.markdown h3,.markdown h4{color:var(--green)}.markdown table{border-collapse:collapse;width:100%}.markdown th,.markdown td{border:1px solid var(--line);padding:6px 10px}
+.navfoot{display:flex;justify-content:space-between;align-items:center;margin:18px 0}.sc{min-width:35px}
+#guest main{display:block;max-width:1030px;padding-top:28px}.guest-card{min-height:360px}.guest-only{display:none}
+#guest .guest-only{display:block}#guest .owner-only{display:none}#guest .markdown{font-size:18px}
+@media(max-width:850px){main{grid-template-columns:1fr}nav{position:static}header{position:static}}
+</style>
+</head>
+<body>
+<header><div><strong>خوانا · مصاحبه فنی بک‌اند</strong><div class="sub" id="roleLabel"></div></div>
+<div class="row owner-only"><span class="muted" id="elapsed"></span><label class="import">بارگذاری JSON خصوصی<input id="file" type="file" accept=".json" hidden></label><button id="newGuest" disabled>بازکردن تب کاندیدا</button><button id="export" class="ghost" disabled>خروجی ارزیابی</button></div>
+<div class="guest-only"><span id="guestIndex"></span></div></header>
+<main>
+<nav class="owner-only"><b>مسیر مصاحبه</b><div id="rail"></div></nav>
+<section>
+<div id="empty" class="panel"><h2>آماده برای شروع</h2><p>فایل خصوصی بانک سؤال را فقط در پنل مصاحبه‌گر بارگذاری کن. این داده‌ها در هیچ سروری آپلود نمی‌شوند.</p><p class="muted">برای همگام‌سازی دو تب از http://127.0.0.1 استفاده کن، نه file://</p></div>
+<div id="content" hidden>
+<div class="meta"><span id="index"></span><span id="tag"></span><span class="owner-only" id="mins"></span><span class="guest-only" id="remaining"></span></div>
+<progress id="progress" value="0" max="100"></progress>
+<article class="guest-card"><h1 id="title"></h1><div class="markdown" id="question"></div></article>
+<div id="followPanel" class="panel" hidden><h2>سؤال تکمیلی</h2><div id="follows" class="markdown"></div><div class="owner-only row"><button id="followNext">نمایش پیگیری بعدی</button><button id="followReset" class="ghost">بستن پیگیری‌ها</button></div></div>
+<div id="hintPanel" class="panel" hidden><h2>راهنمای سؤال</h2><div id="hints"></div><div class="owner-only row"><button id="hintNext">آزادکردن Hint بعدی</button><button id="hintReset" class="ghost">پاک‌کردن Hintها</button></div></div>
+<div class="panel owner-only"><div class="row"><h2>پاسخ و معیار ارزیابی — خصوصی</h2><button id="reveal" class="ghost">نمایش پاسخ</button></div><div id="answer" hidden><h3>پاسخ مرجع</h3><div class="markdown" id="answerBody"></div><h3>Rubric</h3><div class="markdown" id="rubric"></div></div></div>
+<div class="panel owner-only"><h2>ثبت ارزیابی</h2><div class="row"><span>امتیاز:</span><div id="scores"></div></div><textarea id="note" placeholder="شواهد پاسخ و موارد لازم برای مرحله دوم..."></textarea></div>
+<div class="navfoot owner-only"><button id="prev" class="ghost">سؤال قبل</button><span id="bottom"></span><button id="next">سؤال بعد</button></div>
+</div>
+</section>
+</main>
+<script>
+(function(){
+"use strict";
+var $=function(x){return document.getElementById(x);};
+var fa=function(n){return new Intl.NumberFormat("fa-IR").format(n);};
+var escape=function(x){return String(x||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});};
+function fmt(x){return escape(x).replace(/\x60([^\x60]+)\x60/g,"<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g,"<strong>$1</strong>").replace(/\*([^*\n]+)\*/g,"<em>$1</em>");}
+function md(src){
+var out=[],text=[],list="",code=[],inCode=false,lines=String(src||"").split(/\r?\n/);
+function p(){if(text.length){out.push("<p>"+fmt(text.join(" "))+"</p>");text=[];}}
+function close(){if(list){out.push("</"+list+">");list="";}}
+for(var i=0;i<lines.length;i++){
+var s=lines[i].trim(), m;
+if(/^\x60{3}/.test(s)){if(inCode){out.push("<pre><code>"+escape(code.join("\n"))+"</code></pre>");code=[];inCode=false;}else{p();close();inCode=true;}continue;}
+if(inCode){code.push(lines[i]);continue;}
+if(!s){p();close();continue;}
+if(/^---+$/.test(s)){p();close();out.push("<hr>");continue;}
+if((m=s.match(/^(#{1,5})\s+(.+)$/))){p();close();out.push("<h"+m[1].length+">"+fmt(m[2])+"</h"+m[1].length+">");continue;}
+if((m=s.match(/^>\s?(.*)$/))){p();close();out.push("<blockquote>"+fmt(m[1])+"</blockquote>");continue;}
+if((m=s.match(/^(?:[-*+]\s+|(\d+)\.\s+)(.+)$/))){p();var t=m[1]?"ol":"ul";if(list!==t){close();out.push("<"+t+">");list=t;}out.push("<li>"+fmt(m[2])+"</li>");continue;}
+text.push(s);
+}
+p();close();if(inCode)out.push("<pre><code>"+escape(code.join("\n"))+"</code></pre>");
+return out.join("\n");
+}
+var guest=new URLSearchParams(location.search).get("view")==="candidate",room,channel;
+var bank=null,pos=0,grades={},notes={},hints={},follows={},start=Date.now();
+if(guest){
+document.body.id="guest";$("roleLabel").textContent="نمای قابل نمایش به کاندیدا";
+room=new URLSearchParams(location.search).get("room");
+if(!room || !/^[a-f0-9-]{10,50}$/i.test(room)){$("empty").innerHTML="<h2>این تب باید از پنل مصاحبه‌گر باز شود.</h2>";return;}
+channel=new BroadcastChannel("khana-interview-"+room);
+channel.onmessage=function(e){if(!e.data || e.data.type!=="slide")return;var q=e.data.q;
+if(!q || !q.questionMd || !Number.isInteger(q.index) || !Number.isInteger(q.total))return;
+$("empty").hidden=true;$("content").hidden=false;$("index").textContent="سؤال "+fa(q.index)+" از "+fa(q.total);
+$("guestIndex").textContent="سؤال "+fa(q.index)+" / "+fa(q.total);
+$("remaining").textContent=fa(q.total-q.index)+" سؤال باقی‌مانده";
+$("progress").value=100*q.index/q.total;$("tag").textContent=q.category||"";
+$("title").textContent=q.title||"";$("question").innerHTML=md(q.questionMd);
+$("hintPanel").hidden=!q.hints.length;$("hints").innerHTML=q.hints.map(function(v,i){return '<div class="hintbox"><b>راهنمای '+fa(i+1)+'</b><div>'+fmt(v)+'</div></div>';}).join("");
+$("followPanel").hidden=!q.followups.length;$("follows").innerHTML=q.followups.map(function(v){return "<blockquote>"+fmt(v)+"</blockquote>";}).join("");
+window.scrollTo(0,0);
+};
+channel.postMessage({type:"ready"});
+document.addEventListener("visibilitychange",function(){if(!document.hidden)channel.postMessage({type:"ready"});});
+return;
+}
+$("roleLabel").textContent="پنل خصوصی مصاحبه‌گر";
+room=sessionStorage.getItem("khana-room");
+if(!room){room=crypto.randomUUID();sessionStorage.setItem("khana-room",room);}
+channel=new BroadcastChannel("khana-interview-"+room);
+channel.onmessage=function(e){if(e.data && e.data.type==="ready" && bank)send();};
+try{var s=JSON.parse(sessionStorage.getItem("khana-progress")||"{}");grades=s.grades||{};notes=s.notes||{};hints=s.hints||{};follows=s.follows||{};pos=s.pos||0;}catch(e){}
+function save(){sessionStorage.setItem("khana-progress",JSON.stringify({grades:grades,notes:notes,hints:hints,follows:follows,pos:pos}));}
+function q(){return bank.questions[pos];}
+function hn(){return Math.min(hints[q().id]||0,q().hints.length);}
+function fn(){return Math.min(follows[q().id]||0,q().followups.length);}
+function send(){var x=q();channel.postMessage({type:"slide",q:{index:pos+1,total:bank.questions.length,title:x.title,category:x.category,questionMd:x.questionMd,hints:x.hints.slice(0,hn()),followups:x.followups.slice(0,fn())}});}
+function rail(){var groups=[];
+bank.questions.forEach(function(x,i){var g=groups.find(function(v){return v.name===x.section;});if(!g){g={name:x.section,items:[]};groups.push(g);}g.items.push({x:x,i:i});});
+$("rail").innerHTML=groups.map(function(g){return "<h3>"+escape(g.name)+"</h3><div class='points'>"+g.items.map(function(t){return '<button class="point '+(t.i===pos?"active":"")+(grades[t.x.id]?" scored":"")+'" data-i="'+t.i+'">'+fa(t.i+1)+"</button>";}).join("")+"</div>";}).join("");
+$("rail").querySelectorAll("[data-i]").forEach(function(b){b.onclick=function(){go(Number(b.dataset.i));};});
+}
+function renderHints(){var x=q(),n=hn();$("hintPanel").hidden=!x.hints.length;
+$("hints").innerHTML=x.hints.slice(0,n).map(function(v,i){return '<div class="hintbox"><b>راهنمای '+fa(i+1)+'</b><div>'+fmt(v)+'</div></div>';}).join("");
+$("hintNext").hidden=n===x.hints.length;$("hintReset").disabled=n===0;
+}
+function renderFollows(){var x=q(),n=fn();$("followPanel").hidden=!x.followups.length;
+$("follows").innerHTML=x.followups.slice(0,n).map(function(v){return "<blockquote>"+fmt(v)+"</blockquote>";}).join("");
+$("followNext").hidden=n===x.followups.length;$("followReset").disabled=n===0;
+}
+function scores(){var k=q().id;$("scores").innerHTML=[1,2,3,4].map(function(n){return '<button class="sc '+(grades[k]===n?"":"ghost")+'" data-grade="'+n+'">'+fa(n)+"</button>";}).join("")+' <button class="ghost" data-grade="0">—</button>';
+$("scores").querySelectorAll("[data-grade]").forEach(function(b){b.onclick=function(){var n=Number(b.dataset.grade);if(n)grades[k]=n;else delete grades[k];save();scores();rail();};});
+}
+function render(){var x=q();$("empty").hidden=true;$("content").hidden=false;$("index").textContent="سؤال "+fa(pos+1)+" از "+fa(bank.questions.length);$("tag").textContent=x.category;$("mins").textContent=fa(x.minutes)+" دقیقه";
+$("progress").value=100*(pos+1)/bank.questions.length;$("title").textContent=x.title;$("question").innerHTML=md(x.questionMd);
+$("answerBody").innerHTML=md(x.answerMd);$("rubric").innerHTML=md(x.rubricMd);$("answer").hidden=true;$("reveal").textContent="نمایش پاسخ";
+$("prev").disabled=pos===0;$("next").disabled=pos===bank.questions.length-1;$("bottom").textContent=fa(pos+1)+" / "+fa(bank.questions.length);$("note").value=notes[x.id]||"";
+renderHints();renderFollows();scores();rail();save();send();
+}
+function go(i){if(!bank||i<0||i>=bank.questions.length)return;notes[q().id]=$("note").value;pos=i;render();window.scrollTo(0,0);}
+$("file").onchange=async function(e){try{var f=e.target.files[0];if(!f||f.size>5000000)throw Error("فایل نامعتبر یا بزرگ است");var d=JSON.parse(await f.text());if(d.schemaVersion!==1||!Array.isArray(d.questions)||!d.questions.length)throw Error("فرمت بانک سؤال نادرست است");
+d.questions.forEach(function(x){if(typeof x.questionMd!=="string"||typeof x.answerMd!=="string"||!Array.isArray(x.hints)||!Array.isArray(x.followups))throw Error("سؤال ناقص است");});
+bank=d;pos=Math.max(0,Math.min(pos,d.questions.length-1));$("newGuest").disabled=false;$("export").disabled=false;render();}
+catch(e){alert("خطای بارگذاری: "+e.message);}};
+$("newGuest").onclick=function(){window.open("./index.html?view=candidate&room="+encodeURIComponent(room),"_blank","noopener");};
+$("prev").onclick=function(){go(pos-1);};$("next").onclick=function(){go(pos+1);};
+$("hintNext").onclick=function(){hints[q().id]=hn()+1;renderHints();save();send();};
+$("hintReset").onclick=function(){hints[q().id]=0;renderHints();save();send();};
+$("followNext").onclick=function(){follows[q().id]=fn()+1;renderFollows();save();send();};
+$("followReset").onclick=function(){follows[q().id]=0;renderFollows();save();send();};
+$("reveal").onclick=function(){$("answer").hidden=!$("answer").hidden;$("reveal").textContent=$("answer").hidden?"نمایش پاسخ":"مخفی‌کردن پاسخ";};
+$("note").oninput=function(){notes[q().id]=$("note").value;save();};
+$("export").onclick=function(){notes[q().id]=$("note").value;var out={title:bank.title,date:new Date().toISOString(),evaluations:bank.questions.map(function(x,i){return {number:i+1,id:x.id,title:x.title,score:grades[x.id]||null,hintsUsed:hints[x.id]||0,note:notes[x.id]||""};})};var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="interview-evaluation.json";a.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);};
+setInterval(function(){var n=Math.floor((Date.now()-start)/1000);$("elapsed").textContent=fa(Math.floor(n/60))+" : "+fa(n%60);},1000);
+document.onkeydown=function(e){if(!e.altKey||!bank||["INPUT","TEXTAREA"].includes(document.activeElement.tagName))return;if(e.key==="ArrowLeft")go(pos+1);if(e.key==="ArrowRight")go(pos-1);};
+})();
+</script>
+</body></html>
